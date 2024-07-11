@@ -79,6 +79,11 @@ func (is *OPCItems) GetCount() int {
 	return len(is.items)
 }
 
+// GetItems get the item of items in the collection
+func (is *OPCItems) GetItems() []*OPCItem {
+	return is.items
+}
+
 // Item get the item by index
 func (is *OPCItems) Item(index int32) (*OPCItem, error) {
 	is.RLock()
@@ -87,6 +92,18 @@ func (is *OPCItems) Item(index int32) (*OPCItem, error) {
 		return nil, errors.New("index out of range")
 	}
 	return is.items[index], nil
+}
+
+// ItemByClientHandle get the item by clientHandle
+func (is *OPCItems) ItemByClientHandle(clientHandle uint32) (*OPCItem, error) {
+	is.RLock()
+	defer is.RUnlock()
+	for _, v := range is.items {
+		if v.clientHandle == clientHandle {
+			return v, nil
+		}
+	}
+	return nil, errors.New("not found")
 }
 
 // ItemByName get the item by name

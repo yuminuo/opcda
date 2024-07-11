@@ -23,8 +23,6 @@ const TestReadErrorItem = "Write Only.Int4"
 
 func TestMain(m *testing.M) {
 	com.Initialize()
-	com.Uninitialize()
-	com.Initialize()
 	defer com.Uninitialize()
 	m.Run()
 }
