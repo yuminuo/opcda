@@ -60,8 +60,8 @@ func TestOPCBrowser(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, fmt.Sprintf("Bucket Brigade.%s", nextName), itermID)
 	}
-	browser.SetFilter("")
-	filter := browser.GetFilter()
+	browser.SetBFilter("")
+	filter := browser.GetBFilter()
 	assert.Equal(t, "", filter)
 	browser.SetDataType(uint16(com.VT_BOOL))
 	dataType := browser.GetDataType()

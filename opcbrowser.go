@@ -9,7 +9,8 @@ import (
 
 type OPCBrowser struct {
 	iBrowseServerAddressSpace *com.IOPCBrowseServerAddressSpace
-	filter                    string
+	bfilter                   string
+	lfilter                   string
 	dataType                  uint16
 	accessRights              uint32
 	names                     []string
@@ -29,14 +30,24 @@ func NewOPCBrowser(parent *OPCServer) (*OPCBrowser, error) {
 	}, nil
 }
 
-// GetFilter get the filter that applies to ShowBranches and ShowLeafs methods
-func (b *OPCBrowser) GetFilter() string {
-	return b.filter
+// GetBFilter get the bfilter that applies to ShowBranches methods
+func (b *OPCBrowser) GetBFilter() string {
+	return b.bfilter
 }
 
-// SetFilter set the filter that applies to ShowBranches and ShowLeafs methods
-func (b *OPCBrowser) SetFilter(filter string) {
-	b.filter = filter
+// SetBFilter set the bfilter that applies to ShowBranches methods
+func (b *OPCBrowser) SetBFilter(bfilter string) {
+	b.bfilter = bfilter
+}
+
+// GetLFilter get the lfilter that applies to ShowLeafs methods
+func (b *OPCBrowser) GetLFilter() string {
+	return b.lfilter
+}
+
+// SetLFilter set the lfilter that applies to ShowLeafs methods
+func (b *OPCBrowser) SetLFilter(lfilter string) {
+	b.lfilter = lfilter
 }
 
 // GetDataType get the requested data type that applies to ShowLeafs methods. This property defaults to
@@ -92,7 +103,7 @@ func (b *OPCBrowser) Item(index int) (string, error) {
 func (b *OPCBrowser) ShowBranches() error {
 	b.names = nil
 	var err error
-	b.names, err = b.iBrowseServerAddressSpace.BrowseOPCItemIDs(OPC_BRANCH, b.filter, b.dataType, b.accessRights)
+	b.names, err = b.iBrowseServerAddressSpace.BrowseOPCItemIDs(OPC_BRANCH, b.bfilter, b.dataType, b.accessRights)
 	return err
 }
 
@@ -104,7 +115,7 @@ func (b *OPCBrowser) ShowLeafs(flat bool) error {
 	if flat {
 		browseType = OPC_FLAT
 	}
-	b.names, err = b.iBrowseServerAddressSpace.BrowseOPCItemIDs(browseType, b.filter, b.dataType, b.accessRights)
+	b.names, err = b.iBrowseServerAddressSpace.BrowseOPCItemIDs(browseType, b.lfilter, b.dataType, b.accessRights)
 	return err
 }
 
