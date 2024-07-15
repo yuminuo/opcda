@@ -41,13 +41,17 @@ func Connect(progID, node string) (opcServer *OPCServer, err error) {
 		}
 		clsid = &id
 	} else {
-		// try get clsid from server list
-		clsid, err = getClsIDFromServerList(progID, node, location)
+		// try get clsid from old server list
+		clsid, err = getClsIDFromOldServerList(progID, node, location)
 		if err != nil {
-			// try get clsid from windows reg
-			clsid, err = getClsIDFromReg(progID, node)
+			// try get clsid from server list
+			clsid, err = getClsIDFromServerList(progID, node, location)
 			if err != nil {
-				return nil, NewOPCWrapperError("getClsIDFromReg", err)
+				// try get clsid from windows reg
+				clsid, err = getClsIDFromReg(progID, node)
+				if err != nil {
+					return nil, NewOPCWrapperError("getClsIDFromReg", err)
+				}
 			}
 		}
 	}
@@ -140,6 +144,20 @@ func getClsIDFromServerList(progID, node string, location com.CLSCTX) (*windows.
 	return clsid, nil
 }
 
+func getClsIDFromOldServerList(progID, node string, location com.CLSCTX) (*windows.GUID, error) {
+	iCatInfo, err := com.MakeCOMObjectEx(node, location, &com.CLSID_OpcServerList, &com.IID_IOPCServerList)
+	if err != nil {
+		return nil, err
+	}
+	defer iCatInfo.Release()
+	sl := &com.IOPCServerList{IUnknown: iCatInfo}
+	clsid, err := sl.CLSIDFromProgID(progID)
+	if err != nil {
+		return nil, err
+	}
+	return clsid, nil
+}
+
 func getClsIDFromReg(progID, node string) (*windows.GUID, error) {
 	var clsid windows.GUID
 	var err error
@@ -173,6 +191,12 @@ type ServerInfo struct {
 	ClsID        *windows.GUID
 }
 
+type OldServerInfo struct {
+	ProgID string
+	ClsStr string
+	ClsID  *windows.GUID
+}
+
 // GetOPCServers get OPC servers from node
 func GetOPCServers(node string) ([]*ServerInfo, error) {
 	location := com.CLSCTX_LOCAL_SERVER
@@ -183,7 +207,7 @@ func GetOPCServers(node string) ([]*ServerInfo, error) {
 	if err != nil {
 		return nil, NewOPCWrapperError("make com object IOPCServerList2", err)
 	}
-	cids := []windows.GUID{IID_CATID_OPCDAServer10, IID_CATID_OPCDAServer20}
+	cids := []windows.GUID{IID_CATID_OPCDAServer10, IID_CATID_OPCDAServer20, IID_CATID_OPCDAServer30}
 	defer iCatInfo.Release()
 	sl := &com.IOPCServerList2{IUnknown: iCatInfo}
 	iEnum, err := sl.EnumClassesOfCategories(cids, nil)
@@ -208,6 +232,40 @@ func GetOPCServers(node string) ([]*ServerInfo, error) {
 	return result, nil
 }
 
+func GetOPCOldServers(node string) ([]*OldServerInfo, error) {
+	location := com.CLSCTX_LOCAL_SERVER
+	if !com.IsLocal(node) {
+		location = com.CLSCTX_REMOTE_SERVER
+	}
+	iCatInfo, err := com.MakeCOMObjectEx(node, location, &com.CLSID_OpcServerList, &com.IID_IOPCServerList)
+	if err != nil {
+		return nil, NewOPCWrapperError("make com object IOPCServerList", err)
+	}
+	cids := []windows.GUID{IID_CATID_OPCDAServer10, IID_CATID_OPCDAServer20, IID_CATID_OPCDAServer30}
+	defer iCatInfo.Release()
+	sl := &com.IOPCServerList{IUnknown: iCatInfo}
+	iEnum, err := sl.EnumClassesOfCategories(cids, nil)
+	if err != nil {
+		return nil, NewOPCWrapperError("server list EnumClassesOfCategories", err)
+	}
+	defer iEnum.Release()
+	var result []*OldServerInfo
+	for {
+		var classID windows.GUID
+		var actual uint32
+		err = iEnum.Next(1, &classID, &actual)
+		if err != nil {
+			break
+		}
+		server, err := getOldServer(sl, &classID)
+		if err != nil {
+			return nil, NewOPCWrapperError("getServer", err)
+		}
+		result = append(result, server)
+	}
+	return result, nil
+}
+
 func getServer(sl *com.IOPCServerList2, classID *windows.GUID) (*ServerInfo, error) {
 	progID, userType, VerIndProgID, err := sl.GetClassDetails(classID)
 	if err != nil {
@@ -224,6 +282,23 @@ func getServer(sl *com.IOPCServerList2, classID *windows.GUID) (*ServerInfo, err
 		ClsStr:       clsStr,
 		ClsID:        classID,
 		VerIndProgID: windows.UTF16PtrToString(VerIndProgID),
+	}, nil
+}
+
+func getOldServer(sl *com.IOPCServerList, classID *windows.GUID) (*OldServerInfo, error) {
+	progID, userType, err := sl.GetClassDetails(classID)
+	if err != nil {
+		return nil, fmt.Errorf("FAILED to get prog ID from class ID: %w", err)
+	}
+	defer func() {
+		com.CoTaskMemFree(unsafe.Pointer(progID))
+		com.CoTaskMemFree(unsafe.Pointer(userType))
+	}()
+	clsStr := classID.String()
+	return &OldServerInfo{
+		ProgID: windows.UTF16PtrToString(progID),
+		ClsStr: clsStr,
+		ClsID:  classID,
 	}, nil
 }
 

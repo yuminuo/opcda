@@ -7,36 +7,22 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-var CLSID_OpcServerList = windows.GUID{
-	Data1: 0x13486D51,
+var IID_IOPCServerList = windows.GUID{
+	Data1: 0x13486D50,
 	Data2: 0x4821,
 	Data3: 0x11D2,
 	Data4: [8]byte{0xA4, 0x94, 0x3C, 0xB3, 0x06, 0xC1, 0x00, 0x00},
 }
 
-var IID_IOPCServerList2 = windows.GUID{
-	Data1: 0x9DD0B56C,
-	Data2: 0xAD9E,
-	Data3: 0x43ee,
-	Data4: [8]byte{0x83, 0x05, 0x48, 0x7F, 0x31, 0x88, 0xBF, 0x7A},
-}
-
-type IOPCServerListVtbl struct {
-	IUnknownVtbl
-	EnumClassesOfCategories uintptr
-	GetClassDetails         uintptr
-	CLSIDFromProgID         uintptr
-}
-
-type IOPCServerList2 struct {
+type IOPCServerList struct {
 	*IUnknown
 }
 
-func (sl *IOPCServerList2) Vtbl() *IOPCServerListVtbl {
+func (sl *IOPCServerList) Vtbl() *IOPCServerListVtbl {
 	return (*IOPCServerListVtbl)(unsafe.Pointer(sl.IUnknown.LpVtbl))
 }
 
-func (sl *IOPCServerList2) EnumClassesOfCategories(rgcatidImpl []windows.GUID, rgcatidReq []windows.GUID) (ppenumClsid *IEnumGUID, err error) {
+func (sl *IOPCServerList) EnumClassesOfCategories(rgcatidImpl []windows.GUID, rgcatidReq []windows.GUID) (ppenumClsid *IEnumGUID, err error) {
 	var r0 uintptr
 	cImplemented := uint32(len(rgcatidImpl))
 	cRequired := uint32(len(rgcatidReq))
@@ -54,16 +40,16 @@ func (sl *IOPCServerList2) EnumClassesOfCategories(rgcatidImpl []windows.GUID, r
 	return
 }
 
-func (sl *IOPCServerList2) GetClassDetails(guid *windows.GUID) (*uint16, *uint16, *uint16, error) {
-	var ppszProgID, ppszUserType, ppszVerIndProgID *uint16
-	r0, _, _ := syscall.SyscallN(sl.Vtbl().GetClassDetails, uintptr(unsafe.Pointer(sl.IUnknown)), uintptr(unsafe.Pointer(guid)), uintptr(unsafe.Pointer(&ppszProgID)), uintptr(unsafe.Pointer(&ppszUserType)), uintptr(unsafe.Pointer(&ppszVerIndProgID)))
+func (sl *IOPCServerList) GetClassDetails(guid *windows.GUID) (*uint16, *uint16, error) {
+	var ppszProgID, ppszUserType *uint16
+	r0, _, _ := syscall.SyscallN(sl.Vtbl().GetClassDetails, uintptr(unsafe.Pointer(sl.IUnknown)), uintptr(unsafe.Pointer(guid)), uintptr(unsafe.Pointer(&ppszProgID)), uintptr(unsafe.Pointer(&ppszUserType)))
 	if r0 != 0 {
-		return nil, nil, nil, syscall.Errno(r0)
+		return nil, nil, syscall.Errno(r0)
 	}
-	return ppszProgID, ppszUserType, ppszVerIndProgID, nil
+	return ppszProgID, ppszUserType, nil
 }
 
-func (sl *IOPCServerList2) CLSIDFromProgID(szProgID string) (*windows.GUID, error) {
+func (sl *IOPCServerList) CLSIDFromProgID(szProgID string) (*windows.GUID, error) {
 	var clsid windows.GUID
 	pProgID, err := syscall.UTF16PtrFromString(szProgID)
 	if err != nil {
